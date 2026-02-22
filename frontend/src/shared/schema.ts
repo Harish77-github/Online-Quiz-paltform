@@ -1,84 +1,109 @@
-import { pgTable, text, serial, integer, boolean, timestamp, jsonb } from "drizzle-orm/pg-core";
-import { relations } from "drizzle-orm";
-import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  email: text("email").notNull().unique(),
-  password: text("password").notNull(),
-  name: text("name").notNull(),
-  role: text("role", { enum: ["student", "faculty"] }).notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const quizzes = pgTable("quizzes", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  description: text("description").notNull(),
-  facultyId: integer("faculty_id").notNull(),
-  questions: jsonb("questions").$type<{
-    questionText: string;
-    options: string[];
-    correctAnswerIndex: number;
-  }[]>().notNull(),
-  createdAt: timestamp("created_at").defaultNow(),
-});
-
-export const attempts = pgTable("attempts", {
-  id: serial("id").primaryKey(),
-  quizId: integer("quiz_id").notNull(),
-  studentId: integer("student_id").notNull(),
-  answers: jsonb("answers").$type<number[]>().notNull(),
-  score: integer("score").notNull(),
-  totalQuestions: integer("total_questions").notNull(),
-  terminated: boolean("terminated").default(false),
-  terminationReason: text("termination_reason"),
-  completedAt: timestamp("completed_at").defaultNow(),
-});
-
-export const usersRelations = relations(users, ({ many }) => ({
-  quizzes: many(quizzes),
-  attempts: many(attempts),
-}));
-
-export const quizzesRelations = relations(quizzes, ({ one, many }) => ({
-  faculty: one(users, {
-    fields: [quizzes.facultyId],
-    references: [users.id],
-  }),
-  attempts: many(attempts),
-}));
-
-export const attemptsRelations = relations(attempts, ({ one }) => ({
-  quiz: one(quizzes, {
-    fields: [attempts.quizId],
-    references: [quizzes.id],
-  }),
-  student: one(users, {
-    fields: [attempts.studentId],
-    references: [users.id],
-  }),
-}));
-
-export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
-export const insertQuizSchema = createInsertSchema(quizzes).omit({ id: true, createdAt: true });
-export const insertAttemptSchema = createInsertSchema(attempts).omit({ id: true, completedAt: true });
-
-export type User = typeof users.$inferSelect;
-export type InsertUser = z.infer<typeof insertUserSchema>;
-
-export type Quiz = typeof quizzes.$inferSelect;
-export type InsertQuiz = z.infer<typeof insertQuizSchema>;
-
-export type Attempt = typeof attempts.$inferSelect;
-export type InsertAttempt = z.infer<typeof insertAttemptSchema>;
-
+// ─── Question type ───────────────────────────────────────────────
 export type Question = {
   questionText: string;
   options: string[];
   correctAnswerIndex: number;
 };
 
+// ─── User ────────────────────────────────────────────────────────
+export interface User {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  role: "student" | "faculty";
+  isVerified?: boolean;
+  createdAt?: string | null;
+}
+
+export const insertUserSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(1),
+  name: z.string().min(1),
+  role: z.enum(["student", "faculty"]),
+});
+
+export type InsertUser = z.infer<typeof insertUserSchema>;
+
+// ─── Quiz ────────────────────────────────────────────────────────
+export interface Quiz {
+  id: string;
+  title: string;
+  description: string;
+  facultyId: string;
+  questions: Question[];
+  availableFrom?: string | null;
+  availableUntil?: string | null;
+  isAlwaysAvailable?: boolean;
+  durationMinutes?: number | null;
+  accessCode?: string | null;
+  hasAccessCode?: boolean;
+  published?: boolean;
+  createdAt?: string | null;
+}
+
+export const insertQuizSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  facultyId: z.string().optional(),
+  questions: z.array(
+    z.object({
+      questionText: z.string().min(1),
+      options: z.array(z.string()),
+      correctAnswerIndex: z.number(),
+    })
+  ),
+  availableFrom: z.string().nullable().optional(),
+  availableUntil: z.string().nullable().optional(),
+  isAlwaysAvailable: z.boolean().optional(),
+  durationMinutes: z.number().nullable().optional(),
+  accessCode: z.string().nullable().optional(),
+  published: z.boolean().optional(),
+});
+
+export type InsertQuiz = z.infer<typeof insertQuizSchema>;
+
+// ─── Attempt ─────────────────────────────────────────────────────
+export interface DetailedAnswer {
+  questionId?: string;
+  questionText: string;
+  selectedAnswer: string | null;
+  correctAnswer: string;
+  isCorrect: boolean;
+}
+
+export interface Attempt {
+  id: string;
+  quizId: string;
+  studentId: string;
+  answers: DetailedAnswer[] | number[];
+  score: number;
+  totalQuestions: number;
+  terminated?: boolean;
+  terminationReason?: string | null;
+  violations?: number;
+  isLocked?: boolean;
+  isAutoSubmitted?: boolean;
+  startedAt?: string | null;
+  expiresAt?: string | null;
+  timeTakenSeconds?: number | null;
+  completedAt?: string | null;
+}
+
+export const insertAttemptSchema = z.object({
+  quizId: z.string(),
+  studentId: z.string(),
+  answers: z.array(z.number()),
+  score: z.number(),
+  totalQuestions: z.number(),
+  terminated: z.boolean().optional(),
+  terminationReason: z.string().nullable().optional(),
+});
+
+export type InsertAttempt = z.infer<typeof insertAttemptSchema>;
+
+// ─── Composite types ─────────────────────────────────────────────
 export type QuizWithFaculty = Quiz & { facultyName: string };
 export type AttemptWithDetails = Attempt & { quizTitle: string; studentName: string; studentEmail: string };

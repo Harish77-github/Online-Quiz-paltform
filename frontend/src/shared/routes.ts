@@ -1,5 +1,13 @@
 import { z } from "zod";
-import { insertUserSchema, insertQuizSchema, users, quizzes, attempts } from "./schema";
+import {
+  insertUserSchema,
+  insertQuizSchema,
+  type User,
+  type Quiz,
+  type Attempt,
+  type QuizWithFaculty,
+  type AttemptWithDetails,
+} from "./schema";
 
 export const errorSchemas = {
   validation: z.object({
@@ -27,7 +35,7 @@ export const api = {
       path: "/api/auth/register" as const,
       input: registerSchema,
       responses: {
-        201: z.custom<typeof users.$inferSelect>(),
+        201: z.custom<User>(),
         400: errorSchemas.validation,
       },
     },
@@ -38,7 +46,7 @@ export const api = {
       responses: {
         200: z.object({
           token: z.string(),
-          user: z.custom<typeof users.$inferSelect>(),
+          user: z.custom<User>(),
         }),
         401: errorSchemas.unauthorized,
       },
@@ -47,7 +55,7 @@ export const api = {
       method: "GET" as const,
       path: "/api/auth/me" as const,
       responses: {
-        200: z.custom<typeof users.$inferSelect>(),
+        200: z.custom<User>(),
         401: errorSchemas.unauthorized,
       },
     },
@@ -57,7 +65,7 @@ export const api = {
       method: "GET" as const,
       path: "/api/quizzes" as const,
       responses: {
-        200: z.array(z.custom<typeof quizzes.$inferSelect & { facultyName: string }>()),
+        200: z.array(z.custom<QuizWithFaculty>()),
       },
     },
     create: {
@@ -65,7 +73,7 @@ export const api = {
       path: "/api/quizzes" as const,
       input: insertQuizSchema.omit({ facultyId: true }),
       responses: {
-        201: z.custom<typeof quizzes.$inferSelect>(),
+        201: z.custom<Quiz>(),
         401: errorSchemas.unauthorized,
       },
     },
@@ -73,7 +81,7 @@ export const api = {
       method: "GET" as const,
       path: "/api/quizzes/:id" as const,
       responses: {
-        200: z.custom<typeof quizzes.$inferSelect>(),
+        200: z.custom<Quiz>(),
         404: errorSchemas.notFound,
       },
     },
@@ -88,7 +96,7 @@ export const api = {
         terminationReason: z.string().optional(),
       }),
       responses: {
-        201: z.custom<typeof attempts.$inferSelect>(),
+        201: z.custom<Attempt>(),
         401: errorSchemas.unauthorized,
       },
     },
@@ -96,14 +104,14 @@ export const api = {
       method: "GET" as const,
       path: "/api/attempts/my" as const,
       responses: {
-        200: z.array(z.custom<typeof attempts.$inferSelect & { quizTitle: string }>()),
+        200: z.array(z.custom<Attempt & { quizTitle: string }>()),
       },
     },
     byQuiz: {
       method: "GET" as const,
       path: "/api/quizzes/:id/attempts" as const,
       responses: {
-        200: z.array(z.custom<typeof attempts.$inferSelect & { studentName: string; studentEmail: string }>()),
+        200: z.array(z.custom<Attempt & { studentName: string; studentEmail: string }>()),
         403: errorSchemas.unauthorized,
       },
     },
