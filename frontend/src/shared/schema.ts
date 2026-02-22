@@ -3,8 +3,6 @@ import { relations } from "drizzle-orm";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
-// === TABLE DEFINITIONS ===
-
 export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
@@ -31,15 +29,13 @@ export const attempts = pgTable("attempts", {
   id: serial("id").primaryKey(),
   quizId: integer("quiz_id").notNull(),
   studentId: integer("student_id").notNull(),
-  answers: jsonb("answers").$type<number[]>().notNull(), // Array of selected indices
+  answers: jsonb("answers").$type<number[]>().notNull(),
   score: integer("score").notNull(),
   totalQuestions: integer("total_questions").notNull(),
   terminated: boolean("terminated").default(false),
   terminationReason: text("termination_reason"),
   completedAt: timestamp("completed_at").defaultNow(),
 });
-
-// === RELATIONS ===
 
 export const usersRelations = relations(users, ({ many }) => ({
   quizzes: many(quizzes),
@@ -65,13 +61,9 @@ export const attemptsRelations = relations(attempts, ({ one }) => ({
   }),
 }));
 
-// === SCHEMAS ===
-
 export const insertUserSchema = createInsertSchema(users).omit({ id: true, createdAt: true });
 export const insertQuizSchema = createInsertSchema(quizzes).omit({ id: true, createdAt: true });
 export const insertAttemptSchema = createInsertSchema(attempts).omit({ id: true, completedAt: true });
-
-// === TYPES ===
 
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -82,7 +74,6 @@ export type InsertQuiz = z.infer<typeof insertQuizSchema>;
 export type Attempt = typeof attempts.$inferSelect;
 export type InsertAttempt = z.infer<typeof insertAttemptSchema>;
 
-// Custom Types for API
 export type Question = {
   questionText: string;
   options: string[];
